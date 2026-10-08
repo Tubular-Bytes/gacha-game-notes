@@ -9,6 +9,14 @@
 * potion - mandatory 1 skill, mandatory LUA (behavior or modifiers)
 * skill - mandatory cooldown, mandatory LUA (behavior or modifiers)
 
+  ### Character
+
+  A character is made up of building blocks that are the entities below. A character blueprint has only the default values of resources which upon instantiating get every other blocks randomly assigned (thus giving the game the gacha feel)
+
+  Player agency is limited. They can pick the 3 skills from the weapon/armor pool to shape their characters.
+
+  (For future reference, explore possibility of setting priority for skills)
+
   ### Class / Race
 
   * Class and race always adds exactly 1 skill.
@@ -31,3 +39,4 @@
   * They always have a cooldown
   * It’s mandatory to attach LUA to it to describe behavior
   * Can affect self, allies, enemies or add a global effect
+  * Skills are greedy. Whenever a skill is available it will be triggered as long as no other skill has been triggered in the same turn. If there are more than one skills off cooldown, the skill to use will be picked randomly.
