@@ -30,3 +30,4 @@
   * A skill is anything that interacts with the game.
   * They always have a cooldown
   * It’s mandatory to attach LUA to it to describe behavior
+  * Can affect self, allies, enemies or add a global effect
