@@ -40,17 +40,3 @@
   * It’s mandatory to attach LUA to it to describe behavior
   * Can affect self, allies, enemies or add a global effect
   * Skills are greedy. Whenever a skill is available it will be triggered as long as no other skill has been triggered in the same turn. If there are more than one skills off cooldown, the skill to use will be picked randomly.
-
-
-
-```
-id: dagger
-name: Dagger
-skills: \[backstab, flurry\]
-roll: |
-  return {
-    modifiers = {
-      { stat = "initiative", op = "add", value = rand(1, 3) },
-    },
-  }
-```
