@@ -16,12 +16,12 @@ Each tag in the library repository (`v1.0.0`, `v2.0.0`, ...) is a state you can 
 
 ## Where to look
 
-| Question | Command |
+| Question | Where |
 |---|---|
-| Which versions are stored, which is active (per the service)? | `curl -s https://library.ruffpawz.tubularbytes.dev/api/library/versions` |
-| Which version does the game actually run? | `curl -s https://ruffpawz.tubularbytes.dev/api/health` (`library_version`), or `.version` of `/api/wiki` |
-| Did the game refuse a version? | `kubectl -n gacha logs deploy/gacha-server \| grep -E 'library (rejected\|activated)'` |
-| Staging | the same with `library.staging.` and `staging.` in the hosts, and `-n gacha-staging` |
+| Which versions are stored, which is active (per the service)? | The library service's list of versions. |
+| Which version does the game actually run? | The game's own health information (`library_version`), or the `version` in the wiki data it serves. |
+| Did the game refuse a version? | The game server's log: look for `library rejected` and `library activated`. |
+| Staging | The same, on the staging environment. |
 
 The service's *active* version and the game's *running* version should be equal a few seconds after an activation. If they are not, the game refused the new one.
 
@@ -29,12 +29,7 @@ The service's *active* version and the game's *running* version should be equal 
 
 1. **Choose the target.** A tag whose content you published before, or a stored version id. Check that it has every id in use (next section).
 2. **Roll back through the workflow**: run *publish-library* with `environment`, `ref` set to the target tag and `activate` on. The run waits until the game reports that version and fails, saying so, if it does not.
-3. **Or activate by hand** (the workflow cannot name a version id):
-   ```sh
-   TOKEN=$(kubectl -n gacha get secret gacha-library -o jsonpath='{.data.GACHA_LIBRARY_ADMIN_TOKEN}' | base64 -d)
-   curl -s -X POST -H "Authorization: Bearer $TOKEN" \
-     https://library.ruffpawz.tubularbytes.dev/api/library/versions/<version id>/activate
-   ```
+3. **Or activate by hand** (the workflow cannot name a version id): call the library service's activation URL for that version, with the admin token. The token is kept by the maintainer and is never pasted into logs or chat.
 4. **Verify** the game runs it (table above). Do not stop at the service's answer.
 
 Game servers pick a change up within `library_poll_seconds` (10 by default), with no restart. Requests in flight finish with the library they started with.
