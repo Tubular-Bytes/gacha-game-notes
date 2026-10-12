@@ -38,7 +38,7 @@ Use `rand` and nothing else. It draws from the battle's seeded generator, so the
 ### Limits
 
 * **Instructions:** every script call may run about one million Lua instructions. A longer one (an endless loop, for example) is stopped with "script exceeded its instruction limit". The budget is reset for each call.
-* **Memory:** there is no limit per script. Keep strings and tables small.
+* **Memory:** one battle may hold at most 16 MiB of Lua memory (scripts, tables and strings together). A script that needs more fails like one that runs too long. A normal battle uses well under 1 MiB, so keep strings and tables small and this never comes up.
 * **Size:** a single file in a library may be at most 1 MiB, and a whole library 2000 files.
 * **Shared state:** all scripts of one battle run in the same Lua state. A variable assigned without `local` is global and stays visible to every later script in that battle. Always write `local`.
 
