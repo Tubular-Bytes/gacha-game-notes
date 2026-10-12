@@ -6,7 +6,7 @@ How to undo a library change, when that is safe, and what to do instead when it 
 
 - **Prefer a forward fix.** Publish a new version that repairs the problem, with ids kept and unwanted things *retired*, never deleted. This always works.
 - **Rolling back is activating an earlier stored version.** It is instant and nothing is deleted, but it is only safe if that version contains **every id the stored characters use**. A version from before players got characters with newer blocks does not.
-- **Rolling back by hand needs a check afterwards**: the service can say one version is active while the game keeps running another (see [When the game refuses a rollback](#when-the-game-refuses-a-rollback)).
+- **Rolling back by hand needs a check afterwards**: the service can say one version is active while the game keeps running another (see [[#When the game refuses a rollback]]).
 
 ## What a version is
 
