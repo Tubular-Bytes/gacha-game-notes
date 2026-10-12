@@ -1,6 +1,6 @@
 # Rolling back the library
 
-How to undo a library change, when that is safe, and what to do instead when it is not. For the rules that keep stored characters working in the first place, see *Changing the library safely* in the [README](README.md).
+How to undo a library change, when that is safe, and what to do instead when it is not. For the rules that keep stored characters working in the first place, see *Changing the library safely* in the [README](https://github.com/Tubular-Bytes/gacha-game/blob/main/README.md#changing-the-library-safely-rules-for-library-authors).
 
 ## The short version
 
