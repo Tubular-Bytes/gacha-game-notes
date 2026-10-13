@@ -204,6 +204,15 @@ cleanse{ target = ally, kind = "damage_over_time", dispel = { "curse" } }   -- b
 - A cleanse without any filter is an error. There is no "remove everything".
 - Labels are explicit. The damage `tags` of a poison effect are not labels, so a poison that should be cleansable by `dispel = { "poison" }` has to say `dispel = { "poison" }` itself. Modifiers get the same field: `add_modifier{ stat = "defense", op = "add", value = -3, dispel = { "curse" }, target = t, duration = 3 }`.
 - Only what was put on that one character during the battle is removed. Modifiers from its class, race, weapon, armor or potion stay, and so does anything aimed at a whole team or at everyone (`applies_to`), because removing that would affect others too.
+- **Prefer one call per character over a group.** Because of the previous point, a modifier or effect that may need cleansing later should be added to each character separately, with `target`, in a loop, and not once with `applies_to = { team = "enemy" }`:
+
+  ```lua
+  for _, t in ipairs(enemies) do
+    add_effect{ kind = "damage_over_time", amount = 3, tags = { "fire" }, dispel = { "burn" }, target = t, duration = 3, name = "Burn" }
+  end
+  ```
+
+  The same holds for immunity: it is checked per character either way, but a group effect that is half immune is held back one tick at a time (see below), while a loop simply drops the immune ones with a `resists` line. Group selectors are fine for things that never need removing, such as an aura for the whole fight.
 - The log says `X is cleansed of Poison: ...` for everything removed. An effect that was removed does not get a "wears off" line.
 - A stun is removed immediately, so a cleanse used by an ally earlier in the round lets the stunned character act in its own turn.
 
