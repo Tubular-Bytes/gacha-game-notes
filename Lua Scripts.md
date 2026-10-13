@@ -163,7 +163,7 @@ add_effect{ kind = "stun", target = t, duration = 1, name = "Frozen" }
 | `kind` | `damage_over_time`, `heal_over_time` or `stun` |
 | `amount` | for the two over-time kinds: the number, 0 or more. A stun has no amount |
 | `tags` | with `damage_over_time` only: damage tags, such as `{ "poison" }` |
-| `target` | the one character it is on (an entity or id); by default the caster. Effects have no groups and no `applies_to`: to affect several characters, call `add_effect` for each of them in a loop |
+| `target` or `applies_to` | who is affected, like `add_modifier` (an entity or id, or a selector); by default the caster |
 | `duration` | rounds, at least 1 |
 | `name` | the label shown in the battle log; default is the skill's name |
 | `dispel` | labels a [[#Cleanse and immunity|cleanse or an immunity]] can pick the effect by, such as `{ "poison" }`. Not the same thing as `tags` |
@@ -204,14 +204,15 @@ cleanse{ target = ally, kind = "damage_over_time", dispel = { "curse" } }   -- b
 - A cleanse without any filter is an error. There is no "remove everything".
 - Labels are explicit. The damage `tags` of a poison effect are not labels, so a poison that should be cleansable by `dispel = { "poison" }` has to say `dispel = { "poison" }` itself. Modifiers get the same field: `add_modifier{ stat = "defense", op = "add", value = -3, dispel = { "curse" }, target = t, duration = 3 }`.
 - Only what was put on that one character during the battle is removed. Modifiers from its class, race, weapon, armor or potion stay, and so does anything aimed at a whole team or at everyone (`applies_to`), because removing that would affect others too.
-- **Effects are always on one character,** so they can always be cleansed. Modifiers can be aimed at groups with `applies_to`, and those cannot be cleansed. A modifier that may need cleansing later should be added to each character separately with `target`, in a loop, and not once with `applies_to = { team = "enemy" }`. Group selectors are for things that never need removing, such as an aura for the whole fight.
+- **Prefer one call per character over a group.** Because of the previous point, a modifier or effect that may need cleansing later should be added to each character separately, with `target`, in a loop, and not once with `applies_to = { team = "enemy" }`:
 
   ```lua
   for _, t in ipairs(enemies) do
-    add_modifier{ stat = "defense", op = "add", value = -2, dispel = { "curse" }, target = t, duration = 3, name = "Hex" }
+    add_effect{ kind = "damage_over_time", amount = 3, tags = { "fire" }, dispel = { "burn" }, target = t, duration = 3, name = "Burn" }
   end
   ```
 
+  The same holds for immunity: it is checked per character either way, but a group effect that is half immune is held back one tick at a time (see below), while a loop simply drops the immune ones with a `resists` line. Group selectors are fine for things that never need removing, such as an aura for the whole fight.
 - The log says `X is cleansed of Poison: ...` for everything removed. An effect that was removed does not get a "wears off" line.
 - A stun is removed immediately, so a cleanse used by an ally earlier in the round lets the stunned character act in its own turn.
 
@@ -228,7 +229,7 @@ add_modifier{ immune = { dispel = { "poison" } }, duration = 2, target = ally, n
 
 The filter is the same as in `cleanse` (`name`, `kind` and `dispel`, at least one). Immunity has no `op` or `value`. It is a defensive modifier, so weapons cannot carry it.
 
-- **New effect on an immune character:** it is not added, and it does not renew a running one either. The log says `X resists Poison`.
+- **New effect on an immune character:** it is not added, and it does not renew a running one either. The log says `X resists Poison`. If an effect is aimed at several characters and only some are immune, it is added and the immune ones are held back when it acts.
 - **Effect that is already running:** it is held back while the immunity lasts. It does not tick and a stun does not skip the turn, the log says `X resists Poison` instead, but its duration keeps counting down. When the immunity ends and rounds are left, it acts again.
 - **Modifiers:** immunity only covers effects. A stat debuff added with `add_modifier` still applies.
 
