@@ -180,6 +180,35 @@ add_effect{ kind = "stun", target = t, duration = 1, name = "Frozen" }
 
 An effect that is not valid (an unknown `kind`, no `amount`, a duration of 0, `tags` on something other than `damage_over_time`) stops the skill with an error, and the skill trial run before a library goes live catches it.
 
+### Effects and defense
+
+**The amount is fixed when the effect is added.** `amount` is worked out once, by the skill's script at the moment of casting, and stored. The engine never runs the script again and never subtracts `defense` by itself. Only modifiers are looked at again on every tick.
+
+```lua
+-- Ignores defense: the number is always 4, whatever the target's defense does later.
+add_effect{ kind = "damage_over_time", amount = 4, tags = { "poison" }, target = t, duration = 3 }
+
+-- Uses defense once, at casting: if the target's defense is 3, this stores 7 for all 3 ticks.
+-- A defense buff in round 2 changes nothing; neither does a defense debuff.
+add_effect{ kind = "damage_over_time", amount = 10 - t.stats.defense, tags = { "burn" }, target = t, duration = 3 }
+```
+
+So the first form is what bleed and poison do. The second is a snapshot: it reflects the target as it was when the skill was used, which is why a buff cast afterwards doesn't help.
+
+**To let defense matter live,** use a damage modifier with the effect's tag, because those are applied again on every tick. A modifier cannot compute its value from a stat, but its `condition` can look at one, so the way to do it is in steps:
+
+```yaml
+# on an armor block: tough targets shrug off burning, whenever it was cast
+- { damage: taken, tags: [burn], op: mul, value: 0.5, condition: "source.stats.defense >= 10" }
+- { damage: taken, tags: [burn], op: mul, value: 0.75, condition: "source.stats.defense >= 5 and source.stats.defense < 10" }
+```
+
+Say a burn is cast for 8 per tick on a target with 4 defense: the first tick does 8. In round 2 a skill adds +6 defense for two rounds, the condition for the first step turns on, and the next tick does 4. When the buff runs out the condition switches off again and the burn is back to 8. Without the modifier, the same buff would not have touched the burn at all.
+
+The same holds in the other direction: a `burn damage taken` modifier that comes from a debuff makes a running burn hurt more from the next tick on, and a `damage: dealt` modifier of the caster applies too, as long as it is still active.
+
+Things we do not have, on purpose, until a skill needs them: an amount that is recalculated on every tick, and a modifier whose value follows a stat smoothly.
+
 ## Modifier tables
 
 Modifiers are data, written either in YAML (on a block) or as a Lua table (in `add_modifier` or a roll script). Exactly one of `stat`, `damage` and `heal` says what changes:
