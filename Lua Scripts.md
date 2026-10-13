@@ -102,6 +102,9 @@ Adds a modifier for a number of rounds, or permanently. See [[#Modifier tables]]
 **`heal_from_damage(target, share)`**
 Heals `target` by `share` times the health that the skill's damage calls have taken from their targets since the previous `heal_from_damage` (or since the skill started). The amount is the health actually lost: after the damage modifiers of both sides, and without overkill, so a hit of 100 on a target with 10 health left counts as 10. Damage to different targets all counts. Everything else works like `heal`: capped at the maximum, dead targets skipped. See [[#Healing from damage]].
 
+**`add_effect{ ... }`**
+Starts a timed effect: damage or healing over time, or a stun. See [[#Effects]].
+
 A script that calls none of them does nothing. A call with an unknown target id (`deal_damage(99, 5)`) makes the whole battle fail.
 
 ### Examples
@@ -141,6 +144,41 @@ local t = enemies[rand(#enemies)]
 deal_damage(t, math.max(1, caster.stats.attack - t.stats.defense * 0.5))
 heal_from_damage(caster, 0.5)
 ```
+
+## Effects
+
+An effect does something to a character at the start of each of its turns for a number of rounds. Where a modifier changes numbers (stats, damage, healing), an effect makes things happen. A skill adds one with `add_effect`:
+
+```lua
+add_effect{ kind = "damage_over_time", amount = 4, tags = { "poison" }, target = t, duration = 3, name = "Poison" }
+add_effect{ kind = "heal_over_time", amount = 8, duration = 2, name = "Regrowth" }   -- on the caster
+add_effect{ kind = "stun", target = t, duration = 1, name = "Frozen" }
+```
+
+| Field | Meaning |
+|---|---|
+| `kind` | `damage_over_time`, `heal_over_time` or `stun` |
+| `amount` | for the two over-time kinds: the number, 0 or more. A stun has no amount |
+| `tags` | with `damage_over_time` only: damage tags, such as `{ "poison" }` |
+| `target` or `applies_to` | who is affected, like `add_modifier` (an entity or id, or a selector); by default the caster |
+| `duration` | rounds, at least 1 |
+| `name` | the label shown in the battle log; default is the skill's name |
+
+**What happens, in order, at the start of the affected character's turn:**
+
+1. Conditions are checked, as always.
+2. Each effect on the character acts, oldest first. Damage over time goes through the normal damage rules: the damage modifiers of the one who cast it (dealt) and of the character (taken) apply, and the tags count. Healing over time goes through the healing modifiers. The battle log shows a line for the effect and then the damage or healing.
+3. A character that died from this does not act. The fight ends at once if that was the last one of its team.
+4. A stunned character loses its whole turn. It does not use a skill and it is not a pass: the log says it cannot act. Cooldowns keep counting down.
+5. Otherwise the turn goes on as usual.
+
+**Duration:** it counts down at the end of every round, like a modifier's, including the round in which it was added. A duration of 3 added during a round, before the target's turn, acts in that round and the two after it. If the target has already acted that round, the first turn it feels is the next one.
+
+**Renewing, not stacking:** an effect is identified by its name, the one who cast it and who it is on. Adding it again, while it is running, restarts its duration (and takes the new amount) instead of adding a second copy. Poison from two different characters, or two effects with different names, run side by side.
+
+**After the caster is gone:** an effect keeps running when the one who cast it dies, so a poisoned enemy stays poisoned.
+
+An effect that is not valid (an unknown `kind`, no `amount`, a duration of 0, `tags` on something other than `damage_over_time`) stops the skill with an error, and the skill trial run before a library goes live catches it.
 
 ## Modifier tables
 
