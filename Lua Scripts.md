@@ -105,6 +105,9 @@ Heals `target` by `share` times the health that the skill's damage calls have ta
 **`add_effect{ ... }`**
 Starts a timed effect: damage or healing over time, or a stun. See [[#Effects]].
 
+**`cleanse{ target = ..., name = ..., kind = ..., dispel = {...} }`**
+Takes effects and modifiers off `target`. At least one of the three filters is needed, and everything given has to match. See [[#Cleanse and immunity]].
+
 A script that calls none of them does nothing. A call with an unknown target id (`deal_damage(99, 5)`) makes the whole battle fail.
 
 ### Examples
@@ -163,6 +166,7 @@ add_effect{ kind = "stun", target = t, duration = 1, name = "Frozen" }
 | `target` or `applies_to` | who is affected, like `add_modifier` (an entity or id, or a selector); by default the caster |
 | `duration` | rounds, at least 1 |
 | `name` | the label shown in the battle log; default is the skill's name |
+| `dispel` | labels a [[#Cleanse and immunity|cleanse or an immunity]] can pick the effect by, such as `{ "poison" }`. Not the same thing as `tags` |
 
 **What happens, in order, at the start of the affected character's turn:**
 
@@ -179,6 +183,46 @@ add_effect{ kind = "stun", target = t, duration = 1, name = "Frozen" }
 **After the caster is gone:** an effect keeps running when the one who cast it dies, so a poisoned enemy stays poisoned.
 
 An effect that is not valid (an unknown `kind`, no `amount`, a duration of 0, `tags` on something other than `damage_over_time`) stops the skill with an error, and the skill trial run before a library goes live catches it.
+
+### Cleanse and immunity
+
+**Cleanse** takes things off one character. It removes a running effect, and also a modifier that a skill added to that character, if it matches the filter:
+
+```lua
+cleanse{ target = ally, dispel = { "poison" } }      -- anything labelled poison
+cleanse{ target = ally, kind = "stun" }              -- every stun
+cleanse{ target = ally, name = "Poison" }            -- by the name it was added under
+cleanse{ target = ally, kind = "damage_over_time", dispel = { "curse" } }   -- both must match
+```
+
+| Filter | Matches |
+|---|---|
+| `name` | the label the effect or modifier was added under (`name` in `add_effect`/`add_modifier`) |
+| `kind` | `damage_over_time`, `heal_over_time` or `stun`. Modifiers have no kind, so a filter with a kind never removes one |
+| `dispel` | anything that carries at least one of these labels in its own `dispel` list |
+
+- A cleanse without any filter is an error. There is no "remove everything".
+- Labels are explicit. The damage `tags` of a poison effect are not labels, so a poison that should be cleansable by `dispel = { "poison" }` has to say `dispel = { "poison" }` itself. Modifiers get the same field: `add_modifier{ stat = "defense", op = "add", value = -3, dispel = { "curse" }, target = t, duration = 3 }`.
+- Only what was put on that one character during the battle is removed. Modifiers from its class, race, weapon, armor or potion stay, and so does anything aimed at a whole team or at everyone (`applies_to`), because removing that would affect others too.
+- The log says `X is cleansed of Poison: ...` for everything removed. An effect that was removed does not get a "wears off" line.
+- A stun is removed immediately, so a cleanse used by an ally earlier in the round lets the stunned character act in its own turn.
+
+**Immunity** is a modifier with an `immune` filter, so a class, race, armor or potion can carry it permanently (or with a `condition`), and a skill can grant it for some rounds with `add_modifier`:
+
+```yaml
+- { immune: { kind: stun } }                               # on a block: never stunned
+- { immune: { dispel: [poison] }, condition: "source.hp > 10" }
+```
+
+```lua
+add_modifier{ immune = { dispel = { "poison" } }, duration = 2, target = ally, name = "Antidote" }
+```
+
+The filter is the same as in `cleanse` (`name`, `kind` and `dispel`, at least one). Immunity has no `op` or `value`. It is a defensive modifier, so weapons cannot carry it.
+
+- **New effect on an immune character:** it is not added, and it does not renew a running one either. The log says `X resists Poison`. If an effect is aimed at several characters and only some are immune, it is added and the immune ones are held back when it acts.
+- **Effect that is already running:** it is held back while the immunity lasts. It does not tick and a stun does not skip the turn, the log says `X resists Poison` instead, but its duration keeps counting down. When the immunity ends and rounds are left, it acts again.
+- **Modifiers:** immunity only covers effects. A stat debuff added with `add_modifier` still applies.
 
 ### Effects and defense
 
@@ -211,7 +255,7 @@ Things we do not have, on purpose, until a skill needs them: an amount that is r
 
 ## Modifier tables
 
-Modifiers are data, written either in YAML (on a block) or as a Lua table (in `add_modifier` or a roll script). Exactly one of `stat`, `damage` and `heal` says what changes:
+Modifiers are data, written either in YAML (on a block) or as a Lua table (in `add_modifier` or a roll script). Exactly one of `stat`, `damage`, `heal` and `immune` says what changes:
 
 ```yaml
 - { stat: attack, op: mul, value: 1.25, condition: "source.hp < source.max_hp * 0.5" }
@@ -225,8 +269,10 @@ Modifiers are data, written either in YAML (on a block) or as a Lua table (in `a
 | `damage` | `dealt` (damage the character deals) or `taken` (damage it receives) |
 | `heal` | `given` (healing the character does) or `received` (healing it gets) |
 | `tags` | with `damage`: only damage carrying any of these tags; leave out for all damage. Not allowed with `heal`, healing has no tags |
+| `immune` | a filter (`name`, `kind`, `dispel`) for effects the character cannot be affected by, see [[#Cleanse and immunity]]. Takes no `op` and `value` |
 | `op` | `add` or `mul` |
 | `value` | the number |
+| `dispel` | labels that a `cleanse` can pick the modifier by, see [[#Cleanse and immunity]] |
 | `applies_to` | who is affected, see below; by default the owner (or the caster, for `add_modifier`) |
 | `condition` | a Lua condition, see [[#Conditions]] |
 | `duration` | rounds the modifier lasts; leave out for permanent. It counts down at the end of each round |
@@ -255,7 +301,7 @@ A `heal` modifier changes every heal: the `heal` calls of skills, `heal_from_dam
 
 ### Which blocks may change what
 
-Stats are sorted into categories: `attack` is offensive, `defense` is defensive, everything else is misc. Damage dealt and healing given are offensive; damage taken and healing received are defensive. Classes, races and potions may change anything. Weapons may change offensive and misc, armor defensive and misc. This is checked for blocks and roll results when the library loads; a modifier added by a skill during a battle is not restricted.
+Stats are sorted into categories: `attack` is offensive, `defense` is defensive, everything else is misc. Damage dealt and healing given are offensive; damage taken, healing received and immunity are defensive. Classes, races and potions may change anything. Weapons may change offensive and misc, armor defensive and misc. This is checked for blocks and roll results when the library loads; a modifier added by a skill during a battle is not restricted.
 
 ## Conditions
 
