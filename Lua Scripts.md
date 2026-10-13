@@ -144,18 +144,20 @@ heal_from_damage(caster, 0.5)
 
 ## Modifier tables
 
-Modifiers are data, written either in YAML (on a block) or as a Lua table (in `add_modifier` or a roll script). Exactly one of `stat` and `damage` says what changes:
+Modifiers are data, written either in YAML (on a block) or as a Lua table (in `add_modifier` or a roll script). Exactly one of `stat`, `damage` and `heal` says what changes:
 
 ```yaml
 - { stat: attack, op: mul, value: 1.25, condition: "source.hp < source.max_hp * 0.5" }
 - { damage: dealt, tags: [frost], op: add, value: -1, applies_to: { team: enemy }, duration: 3 }
+- { heal: received, op: mul, value: 0.5, applies_to: { team: enemy }, duration: 2 }
 ```
 
 | Field | Meaning |
 |---|---|
 | `stat` | a stat name: `hp`, `attack`, `defense`, `initiative`, or any other name |
 | `damage` | `dealt` (damage the character deals) or `taken` (damage it receives) |
-| `tags` | with `damage`: only damage carrying any of these tags; leave out for all damage |
+| `heal` | `given` (healing the character does) or `received` (healing it gets) |
+| `tags` | with `damage`: only damage carrying any of these tags; leave out for all damage. Not allowed with `heal`, healing has no tags |
 | `op` | `add` or `mul` |
 | `value` | the number |
 | `applies_to` | who is affected, see below; by default the owner (or the caster, for `add_modifier`) |
@@ -165,6 +167,10 @@ Modifiers are data, written either in YAML (on a block) or as a Lua table (in `a
 All adds are summed first, then all muls are multiplied in: `(base + sum of adds) * product of muls`. A stat that only appears in modifiers starts at 0.
 
 `add_modifier` also takes two conveniences: `target` (an entity or id, shorthand for `applies_to = { id = ... }`, not combined with `applies_to`) and `name` (the label shown in the battle log; default is the skill's name).
+
+### Healing modifiers
+
+A `heal` modifier changes every heal: the `heal` calls of skills, `heal_from_damage`, and any other healing. `given` applies to the character that heals (the caster), `received` to the one that is healed. Both are folded like damage: the caster's `given` modifiers first, then the target's `received` modifiers, and the result is never below 0. `heal = "received", op = "mul", value = 0` makes a character unhealable; with `value = 0.5` healing is halved. The battle log shows the final amount.
 
 ### Who is affected
 
@@ -182,7 +188,7 @@ All adds are summed first, then all muls are multiplied in: `(base + sum of adds
 
 ### Which blocks may change what
 
-Stats are sorted into categories: `attack` is offensive, `defense` is defensive, everything else is misc. Damage dealt is offensive and damage taken is defensive. Classes, races and potions may change anything. Weapons may change offensive and misc, armor defensive and misc. This is checked for blocks and roll results when the library loads; a modifier added by a skill during a battle is not restricted.
+Stats are sorted into categories: `attack` is offensive, `defense` is defensive, everything else is misc. Damage dealt and healing given are offensive; damage taken and healing received are defensive. Classes, races and potions may change anything. Weapons may change offensive and misc, armor defensive and misc. This is checked for blocks and roll results when the library loads; a modifier added by a skill during a battle is not restricted.
 
 ## Conditions
 
