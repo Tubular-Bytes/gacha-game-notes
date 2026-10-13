@@ -99,6 +99,9 @@ Restores health up to the maximum. Negative amounts are treated as 0, and dead t
 **`add_modifier{ ... }`**
 Adds a modifier for a number of rounds, or permanently. See [[#Modifier tables]].
 
+**`heal_from_damage(target, share)`**
+Heals `target` by `share` times the health that the skill's damage calls have taken from their targets since the previous `heal_from_damage` (or since the skill started). The amount is the health actually lost: after the damage modifiers of both sides, and without overkill, so a hit of 100 on a target with 10 health left counts as 10. Damage to different targets all counts. Everything else works like `heal`: capped at the maximum, dead targets skipped. See [[#Healing from damage]].
+
 A script that calls none of them does nothing. A call with an unknown target id (`deal_damage(99, 5)`) makes the whole battle fail.
 
 ### Examples
@@ -120,6 +123,24 @@ Heal yourself: `heal(caster, 40)`
 Raise your own defense: `add_modifier{ target = caster, stat = "defense", op = "add", value = 6, duration = 2 }`
 
 A global effect on everyone, allies and enemies: `add_modifier{ stat = "attack", op = "mul", value = 0.8, applies_to = {}, duration = 2, name = "Fog" }`
+
+### Healing from damage
+
+`heal_from_damage` **uses up the damage it heals from**. Each call looks at the damage dealt since the last call, heals from it once, and then the counter starts again from zero. This means:
+
+* `deal_damage` in a loop followed by one `heal_from_damage` heals a share of all the hits together.
+* A `heal_from_damage` inside the loop, after each hit, heals the same total: every hit is counted once, in the call that follows it.
+* Two calls in a row: the second one has nothing left and heals nothing. To split the damage between several targets, work out the amounts yourself and use `heal`.
+* Damage that comes after the last `heal_from_damage` is not counted by anything.
+* The counter belongs to one use of one skill. It starts at zero every time a skill is used and is never carried over to another skill or another turn.
+* The damage is used up even when the heal does not happen (a dead target, a share of 0 or less). A call with no damage before it heals nothing and adds no line to the battle log.
+
+```lua
+-- Drain: hits one enemy and heals you for half of the health they lose
+local t = enemies[rand(#enemies)]
+deal_damage(t, math.max(1, caster.stats.attack - t.stats.defense * 0.5))
+heal_from_damage(caster, 0.5)
+```
 
 ## Modifier tables
 
